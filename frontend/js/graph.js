@@ -13,6 +13,8 @@ const MemoryGraph = {
   height: 0,
   containerId: null,
   activeHighlights: new Set(),
+  zoomBehavior: null,    // Store single zoom instance
+  gContainer: null,      // Store the <g> reference
   
   // Icon mapping
   ICONS: {
@@ -34,6 +36,9 @@ const MemoryGraph = {
     active: '#ffd93d'
   },
 
+  // Max deals to render in the graph (prevents browser crash)
+  MAX_DEALS: 50,
+
   safeHash(str) {
     if (!str) return 'empty';
     let hash = 0;
@@ -46,8 +51,16 @@ const MemoryGraph = {
 
   init(containerId) {
     this.containerId = containerId;
-    this.buildGraphData();
-    this.render();
+    try {
+      this.buildGraphData();
+      this.render();
+    } catch (err) {
+      console.error('[MemoryGraph] init error:', err);
+      const container = document.getElementById(containerId);
+      if (container) {
+        container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.5);font-size:14px;padding:20px;text-align:center;">⚠️ Graph failed to render. Try refreshing the page.</div>`;
+      }
+    }
   },
 
   buildGraphData() {
@@ -71,8 +84,24 @@ const MemoryGraph = {
       }
     };
 
+    // Limit deals to prevent browser crash with large datasets
+    // Take a mix: some won, some lost, some active for a balanced graph
+    let dealsToRender = [];
+    const won = DATA.deals.filter(d => d.status === 'won');
+    const lost = DATA.deals.filter(d => d.status === 'lost');
+    const active = DATA.deals.filter(d => d.status === 'active');
+
+    const perBucket = Math.floor(this.MAX_DEALS / 3);
+    dealsToRender = [
+      ...won.slice(0, perBucket),
+      ...lost.slice(0, perBucket),
+      ...active.slice(0, this.MAX_DEALS - perBucket * 2)
+    ];
+
+    const dealIds = new Set(dealsToRender.map(d => d.id));
+
     // 1. Process Deals
-    DATA.deals.forEach(deal => {
+    dealsToRender.forEach(deal => {
       const dealNodeId = `deal_${deal.id}`;
       addNode(dealNodeId, 'deal', deal.company, deal);
 
@@ -95,15 +124,17 @@ const MemoryGraph = {
       }
     });
 
-    // 2. Process Stakeholders
+    // 2. Process Stakeholders (only for rendered deals)
     DATA.stakeholders.forEach(sh => {
+      if (!dealIds.has(sh.dealId)) return;
       const shId = `sh_${sh.id}`;
       addNode(shId, 'stakeholder', sh.role, sh);
       addLink(`deal_${sh.dealId}`, shId, 'participated');
     });
 
-    // 3. Process Objections
+    // 3. Process Objections (only for rendered deals)
     DATA.objections.forEach(obj => {
+      if (!dealIds.has(obj.dealId)) return;
       const objId = `obj_${obj.id}`;
       addNode(objId, 'objection', obj.category, obj);
       addLink(`deal_${obj.dealId}`, objId, 'raised');
@@ -115,6 +146,8 @@ const MemoryGraph = {
         addLink(objId, strategyId, 'resolved_by');
       }
     });
+
+    console.log(`[MemoryGraph] Built graph: ${this.nodesData.length} nodes, ${this.linksData.length} links (from ${dealsToRender.length} deals)`);
   },
 
   getNodeSize(type) {
@@ -155,23 +188,31 @@ const MemoryGraph = {
       .attr("height", "100%")
       .attr("viewBox", [0, 0, this.width, this.height]);
 
-    // Add zoom container
-    const g = this.svg.append("g");
+    // Add zoom container — store reference
+    this.gContainer = this.svg.append("g");
+    const g = this.gContainer;
 
-    // Zoom setup
-    const zoom = d3.zoom()
+    // Single zoom instance — store reference so we can reuse it
+    this.zoomBehavior = d3.zoom()
       .scaleExtent([0.1, 4])
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
       });
-    this.svg.call(zoom);
-    // Center slightly zoomed out initially
-    this.svg.call(zoom.transform, d3.zoomIdentity.translate(this.width/2, this.height/2).scale(0.8).translate(-this.width/2, -this.height/2));
+    this.svg.call(this.zoomBehavior);
 
-    // Force Simulation setup
+    // Center slightly zoomed out initially
+    this.svg.call(
+      this.zoomBehavior.transform,
+      d3.zoomIdentity.translate(this.width / 2, this.height / 2).scale(0.8).translate(-this.width / 2, -this.height / 2)
+    );
+
+    // Force Simulation setup — reduced strength for large graphs
+    const chargeStrength = this.nodesData.length > 200 ? -100 : -200;
+    const linkDistance = this.nodesData.length > 200 ? 40 : 60;
+
     this.simulation = d3.forceSimulation(this.nodesData)
-      .force("link", d3.forceLink(this.linksData).id(d => d.id).distance(60))
-      .force("charge", d3.forceManyBody().strength(-200))
+      .force("link", d3.forceLink(this.linksData).id(d => d.id).distance(linkDistance))
+      .force("charge", d3.forceManyBody().strength(chargeStrength))
       .force("center", d3.forceCenter(this.width / 2, this.height / 2))
       .force("collide", d3.forceCollide().radius(d => d.val + 10).iterations(2));
 
@@ -182,8 +223,7 @@ const MemoryGraph = {
       .data(this.linksData)
       .enter().append("line")
       .attr("stroke", "rgba(255,255,255,0.1)")
-      .attr("stroke-width", 1.5)
-      .attr("id", d => `link-${d.source.id}-${d.target.id}`);
+      .attr("stroke-width", 1.5);
 
     // Draw Nodes
     this.nodeElements = g.append("g")
@@ -253,6 +293,20 @@ const MemoryGraph = {
     d.fy = null;
   },
 
+  // ── Safe ID helpers (handles both string and object refs) ─────
+  _getSourceId(link) {
+    return typeof link.source === 'object' ? link.source.id : link.source;
+  },
+  _getTargetId(link) {
+    return typeof link.target === 'object' ? link.target.id : link.target;
+  },
+  _getSourceType(link) {
+    return typeof link.source === 'object' ? link.source.type : null;
+  },
+  _getTargetType(link) {
+    return typeof link.target === 'object' ? link.target.type : null;
+  },
+
   // ── Node Interactions ─────────────────────────────────────────
 
   handleNodeClick(event, node) {
@@ -272,9 +326,13 @@ const MemoryGraph = {
 
   resetHighlights() {
     this.activeHighlights.clear();
-    this.nodeElements.style("opacity", 1);
-    this.nodeElements.select("circle").attr("stroke-width", 2).attr("filter", null);
-    this.linkElements.style("opacity", 1).attr("stroke", "rgba(255,255,255,0.1)").attr("stroke-width", 1.5);
+    if (this.nodeElements) {
+      this.nodeElements.style("opacity", 1);
+      this.nodeElements.select("circle").attr("stroke-width", 2).attr("filter", null);
+    }
+    if (this.linkElements) {
+      this.linkElements.style("opacity", 1).attr("stroke", "rgba(255,255,255,0.1)").attr("stroke-width", 1.5);
+    }
   },
 
   /**
@@ -299,10 +357,13 @@ const MemoryGraph = {
     const layer1nodes = new Set();
     const layer1links = new Set();
     this.linksData.forEach(l => {
-      if (l.source.id === targetDealIdStr && l.target.type === 'objection') {
-        layer1nodes.add(l.target.id);
+      const sid = this._getSourceId(l);
+      const ttype = this._getTargetType(l);
+      if (sid === targetDealIdStr && ttype === 'objection') {
+        const tid = this._getTargetId(l);
+        layer1nodes.add(tid);
         layer1links.add(l);
-        allHighlightNodes.add(l.target.id);
+        allHighlightNodes.add(tid);
         allHighlightLinks.add(l);
       }
     });
@@ -312,10 +373,13 @@ const MemoryGraph = {
     const layer2nodes = new Set();
     const layer2links = new Set();
     this.linksData.forEach(l => {
-      if (layer1nodes.has(l.source.id) && l.target.type === 'strategy') {
-        layer2nodes.add(l.target.id);
+      const sid = this._getSourceId(l);
+      const ttype = this._getTargetType(l);
+      if (layer1nodes.has(sid) && ttype === 'strategy') {
+        const tid = this._getTargetId(l);
+        layer2nodes.add(tid);
         layer2links.add(l);
-        allHighlightNodes.add(l.target.id);
+        allHighlightNodes.add(tid);
         allHighlightLinks.add(l);
       }
     });
@@ -325,17 +389,24 @@ const MemoryGraph = {
     const layer3nodes = new Set();
     const layer3links = new Set();
     this.linksData.forEach(l => {
-      if (layer2nodes.has(l.target.id) && l.source.type === 'deal' && l.source.id !== targetDealIdStr) {
-        layer3nodes.add(l.source.id);
+      const tid = this._getTargetId(l);
+      const stype = this._getSourceType(l);
+      const sid = this._getSourceId(l);
+      if (layer2nodes.has(tid) && stype === 'deal' && sid !== targetDealIdStr) {
+        layer3nodes.add(sid);
         layer3links.add(l);
-        allHighlightNodes.add(l.source.id);
+        allHighlightNodes.add(sid);
         allHighlightLinks.add(l);
         // Find won outcomes
         this.linksData.forEach(l2 => {
-          if (l2.source.id === l.source.id && l2.target.type === 'outcome' && l2.target.data.status === 'won') {
-            layer3nodes.add(l2.target.id);
+          const l2sid = this._getSourceId(l2);
+          const l2ttype = this._getTargetType(l2);
+          const l2target = typeof l2.target === 'object' ? l2.target : null;
+          if (l2sid === sid && l2ttype === 'outcome' && l2target && l2target.data && l2target.data.status === 'won') {
+            const l2tid = this._getTargetId(l2);
+            layer3nodes.add(l2tid);
             layer3links.add(l2);
-            allHighlightNodes.add(l2.target.id);
+            allHighlightNodes.add(l2tid);
             allHighlightLinks.add(l2);
           }
         });
@@ -373,6 +444,8 @@ const MemoryGraph = {
   // ── Search ────────────────────────────────────────────────────
   searchNodes(query) {
     if (!query || query.trim() === '') { this.clearSearch(); return; }
+    if (!this.nodeElements || !this.linkElements) return;
+
     const q = query.toLowerCase();
     const matchIds = new Set();
     this.nodesData.forEach(n => {
@@ -383,8 +456,8 @@ const MemoryGraph = {
     this.nodeElements.filter(d => matchIds.has(d.id)).select("circle")
       .style("filter", "drop-shadow(0 0 12px rgba(0,229,255,0.8))").attr("stroke-width", 4);
     this.linkElements.style("opacity", d => {
-      const sid = typeof d.source === 'object' ? d.source.id : d.source;
-      const tid = typeof d.target === 'object' ? d.target.id : d.target;
+      const sid = this._getSourceId(d);
+      const tid = this._getTargetId(d);
       return (matchIds.has(sid) || matchIds.has(tid)) ? 0.6 : 0.03;
     });
   },
@@ -396,11 +469,13 @@ const MemoryGraph = {
   // ── Filter by Type ───────────────────────────────────────────
   filterByType(activeTypes) {
     if (!activeTypes || activeTypes.length === 0) { this.resetHighlights(); return; }
+    if (!this.nodeElements || !this.linkElements) return;
+
     this.nodeElements.style("opacity", d => activeTypes.includes(d.type) ? 1 : 0.08);
     this.nodeElements.filter(d => !activeTypes.includes(d.type)).select("circle").attr("stroke-width", 1);
     this.linkElements.style("opacity", d => {
-      const sType = typeof d.source === 'object' ? d.source.type : null;
-      const tType = typeof d.target === 'object' ? d.target.type : null;
+      const sType = this._getSourceType(d);
+      const tType = this._getTargetType(d);
       return (activeTypes.includes(sType) && activeTypes.includes(tType)) ? 0.6 : 0.03;
     });
   },
@@ -424,31 +499,42 @@ const MemoryGraph = {
     layers.push({ nodes: l0Nodes, links: l0Links });
     allHighlightNodes.add(targetDeal.id);
 
-    // Build the other layers similar to highlightDealMemoryPath but staggered out longer
+    // Build the other layers
     const l1Nodes = new Set(); const l1Links = new Set();
     this.linksData.forEach(l => {
-      if (l.source.id === targetDeal.id) { l1Nodes.add(l.target.id); l1Links.add(l); allHighlightNodes.add(l.target.id); allHighlightLinks.add(l); }
+      const sid = this._getSourceId(l);
+      const tid = this._getTargetId(l);
+      if (sid === targetDeal.id) { l1Nodes.add(tid); l1Links.add(l); allHighlightNodes.add(tid); allHighlightLinks.add(l); }
     });
     layers.push({ nodes: l1Nodes, links: l1Links });
 
     const l2Nodes = new Set(); const l2Links = new Set();
     this.linksData.forEach(l => {
-      if (l1Nodes.has(l.source.id) && l.target.type === 'strategy') { l2Nodes.add(l.target.id); l2Links.add(l); allHighlightNodes.add(l.target.id); allHighlightLinks.add(l); }
+      const sid = this._getSourceId(l);
+      const ttype = this._getTargetType(l);
+      const tid = this._getTargetId(l);
+      if (l1Nodes.has(sid) && ttype === 'strategy') { l2Nodes.add(tid); l2Links.add(l); allHighlightNodes.add(tid); allHighlightLinks.add(l); }
     });
     layers.push({ nodes: l2Nodes, links: l2Links });
 
     const l3Nodes = new Set(); const l3Links = new Set();
     this.linksData.forEach(l => {
-      if (l2Nodes.has(l.target.id) && l.source.type === 'deal' && l.source.id !== targetDeal.id) { 
-        l3Nodes.add(l.source.id); l3Links.add(l); allHighlightNodes.add(l.source.id); allHighlightLinks.add(l); 
+      const tid = this._getTargetId(l);
+      const stype = this._getSourceType(l);
+      const sid = this._getSourceId(l);
+      if (l2Nodes.has(tid) && stype === 'deal' && sid !== targetDeal.id) { 
+        l3Nodes.add(sid); l3Links.add(l); allHighlightNodes.add(sid); allHighlightLinks.add(l); 
       }
     });
     layers.push({ nodes: l3Nodes, links: l3Links });
 
     const l4Nodes = new Set(); const l4Links = new Set();
     this.linksData.forEach(l => {
-      if (l3Nodes.has(l.source.id) && l.target.type === 'outcome') {
-        l4Nodes.add(l.target.id); l4Links.add(l); allHighlightNodes.add(l.target.id); allHighlightLinks.add(l);
+      const sid = this._getSourceId(l);
+      const ttype = this._getTargetType(l);
+      const tid = this._getTargetId(l);
+      if (l3Nodes.has(sid) && ttype === 'outcome') {
+        l4Nodes.add(tid); l4Links.add(l); allHighlightNodes.add(tid); allHighlightLinks.add(l);
       }
     });
     layers.push({ nodes: l4Nodes, links: l4Links });
@@ -458,14 +544,18 @@ const MemoryGraph = {
     this.nodeElements.select("circle").attr("stroke-width", 2).attr("filter", null);
     this.linkElements.style("opacity", 0.03).attr("stroke", "rgba(255,255,255,0.1)").attr("stroke-width", 1.5);
 
-    // Zoom into target deal slightly
-    this.svg.transition().duration(1000).call(
-      d3.zoom().on("zoom", (event) => this.svg.select("g").attr("transform", event.transform)).transform,
-      d3.zoomIdentity.translate(this.width/2, this.height/2).scale(1.5).translate(-targetDeal.x, -targetDeal.y)
-    );
+    // Zoom into target deal — using the STORED zoom behavior (no new instance)
+    if (targetDeal.x != null && targetDeal.y != null && this.zoomBehavior && this.svg) {
+      this.svg.transition().duration(1000).call(
+        this.zoomBehavior.transform,
+        d3.zoomIdentity.translate(this.width / 2, this.height / 2).scale(1.5).translate(-targetDeal.x, -targetDeal.y)
+      );
+    }
 
     layers.forEach((layer, idx) => {
       setTimeout(() => {
+        if (!this.nodeElements || !this.linkElements) return;
+
         this.nodeElements.filter(d => layer.nodes.has(d.id))
           .style("opacity", 1)
           .select("circle").attr("stroke-width", 4)
@@ -477,11 +567,12 @@ const MemoryGraph = {
       }, 1000 + (idx * 800));
     });
 
-    // Zoom out at the end to show the full constellation
+    // Zoom out at the end to show the full constellation — reuse stored zoom
     setTimeout(() => {
+      if (!this.svg || !this.zoomBehavior) return;
       this.svg.transition().duration(2000).call(
-        d3.zoom().on("zoom", (event) => this.svg.select("g").attr("transform", event.transform)).transform,
-        d3.zoomIdentity.translate(this.width/2, this.height/2).scale(0.8).translate(-this.width/2, -this.height/2)
+        this.zoomBehavior.transform,
+        d3.zoomIdentity.translate(this.width / 2, this.height / 2).scale(0.8).translate(-this.width / 2, -this.height / 2)
       );
     }, 1000 + (layers.length * 800) + 1500);
   }
