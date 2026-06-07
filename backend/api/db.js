@@ -1,19 +1,13 @@
-const mongoose = require('mongoose');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-const connectDB = async () => {
-  if (mongoose.connections[0].readyState) {
-    return true;
-  }
-  try {
-    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/dealmind';
-    await mongoose.connect(uri);
-    console.log('MongoDB connected');
-    return true;
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    return false;
-  }
-};
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
-module.exports = connectDB;
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_SERVICE_KEY — database calls will fail.');
+}
+
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+
+module.exports = supabase;

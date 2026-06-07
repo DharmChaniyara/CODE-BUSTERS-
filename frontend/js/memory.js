@@ -9,7 +9,7 @@ const MemoryStore = {
   // ── Initialization ───────────────────────────────────────────
   async init() {
     try {
-      console.log('[MemoryStore] Fetching data from MongoDB API...');
+      console.log('[MemoryStore] Fetching data from Supabase API...');
       const response = await fetch('/api/data');
       if (response.ok) {
         const parsed = await response.json();
@@ -29,7 +29,7 @@ const MemoryStore = {
             this.learningState = this._buildInitialLearningState();
           }
           
-          console.log('[MemoryStore] Restored from MongoDB API:', {
+          console.log('[MemoryStore] Restored from Supabase API:', {
             deals: DATA.deals.length,
             interactions: DATA.interactions.length,
             nodes: DATA.memoryStats.memoryNodes
@@ -65,7 +65,7 @@ const MemoryStore = {
           learningState: this.learningState
         })
       });
-      console.log('[MemoryStore] Seeded MongoDB database successfully');
+      console.log('[MemoryStore] Seeded Supabase database successfully');
     } catch(e) {
       console.error('Seed failed', e);
     }
