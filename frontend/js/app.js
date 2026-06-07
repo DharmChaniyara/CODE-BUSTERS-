@@ -9,9 +9,9 @@ const App = {
   animationFrame: null,
   _autoDemo: { running: false, paused: false, timer: null, currentStep: 0 },
 
-  init() {
-    // Initialize persistent memory
-    MemoryStore.init();
+  async init() {
+    // Initialize persistent memory from MongoDB
+    await MemoryStore.init();
 
     this.renderShell();
     this.navigateTo('dashboard');

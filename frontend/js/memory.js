@@ -7,65 +7,105 @@ const MemoryStore = {
   VERSION: 2,
 
   // ── Initialization ───────────────────────────────────────────
-  init() {
-    const stored = localStorage.getItem(this.STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed.version === this.VERSION) {
-          // Restore mutable data from storage
+  async init() {
+    try {
+      console.log('[MemoryStore] Fetching data from MongoDB API...');
+      const response = await fetch('/api/data');
+      if (response.ok) {
+        const parsed = await response.json();
+        
+        // If the DB is empty (deals length 0), we will seed it using local DATA
+        if (parsed.deals && parsed.deals.length > 0) {
           DATA.deals = parsed.deals;
           DATA.stakeholders = parsed.stakeholders;
           DATA.interactions = parsed.interactions;
           DATA.objections = parsed.objections;
-          DATA.knowledgeBase = parsed.knowledgeBase;
-          DATA.memoryStats = parsed.memoryStats;
-          // Restore learning state
-          if (parsed.learningState) {
+          DATA.knowledgeBase = parsed.knowledgeBase || DATA.knowledgeBase;
+          DATA.memoryStats = parsed.memoryStats || DATA.memoryStats;
+          
+          if (parsed.learningState && Object.keys(parsed.learningState).length > 0) {
             this.learningState = parsed.learningState;
+          } else {
+            this.learningState = this._buildInitialLearningState();
           }
-          console.log('[MemoryStore] Restored from persistent memory:', {
+          
+          console.log('[MemoryStore] Restored from MongoDB API:', {
             deals: DATA.deals.length,
             interactions: DATA.interactions.length,
             nodes: DATA.memoryStats.memoryNodes
           });
           return true;
+        } else {
+          console.log('[MemoryStore] DB empty, seeding from local DATA generation...');
+          await this.seedDatabase();
         }
-      } catch (e) {
-        console.warn('[MemoryStore] Failed to parse stored data, using fresh data');
       }
+    } catch (e) {
+      console.error('[MemoryStore] Failed to fetch from API, falling back to local init', e);
     }
-    // Initialize learning state from scratch
+    
+    // Fallback if API fails or empty
     this.learningState = this._buildInitialLearningState();
-    this.save();
-    console.log('[MemoryStore] Initialized with fresh data');
     return false;
   },
 
-  // ── Save All State ───────────────────────────────────────────
-  save() {
-    const payload = {
-      version: this.VERSION,
-      deals: DATA.deals,
-      stakeholders: DATA.stakeholders,
-      interactions: DATA.interactions,
-      objections: DATA.objections,
-      knowledgeBase: DATA.knowledgeBase,
-      memoryStats: DATA.memoryStats,
-      learningState: this.learningState,
-      savedAt: new Date().toISOString()
-    };
+  async seedDatabase() {
+    this.learningState = this._buildInitialLearningState();
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(payload));
-      this._updateMemoryStats();
+      await fetch('/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deals: DATA.deals,
+          stakeholders: DATA.stakeholders,
+          interactions: DATA.interactions,
+          objections: DATA.objections,
+          knowledgeBase: DATA.knowledgeBase,
+          memoryStats: DATA.memoryStats,
+          learningState: this.learningState
+        })
+      });
+      console.log('[MemoryStore] Seeded MongoDB database successfully');
+    } catch(e) {
+      console.error('Seed failed', e);
+    }
+  },
+
+  // ── Save All State ───────────────────────────────────────────
+  async save() {
+    this._updateMemoryStats();
+    // In a full production app, individual records (like Deals) would be pushed to their own 
+    // POST / PUT endpoints here rather than seeding the whole database. 
+    // To match the prototype's rapid save feature, we sync the state via the seed route for now.
+    try {
+      await fetch('/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deals: DATA.deals,
+          stakeholders: DATA.stakeholders,
+          interactions: DATA.interactions,
+          objections: DATA.objections,
+          knowledgeBase: DATA.knowledgeBase,
+          memoryStats: DATA.memoryStats,
+          learningState: this.learningState
+        })
+      });
     } catch (e) {
       console.error('[MemoryStore] Save failed:', e);
     }
   },
 
   // ── Reset to Fresh State ─────────────────────────────────────
-  reset() {
-    localStorage.removeItem(this.STORAGE_KEY);
+  async reset() {
+    try {
+      // Clear the DB (which triggers a re-seed on next load)
+      await fetch('/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deals: [], stakeholders: [], interactions: [], objections: [], knowledgeBase: {}, memoryStats: {}, learningState: {} })
+      });
+    } catch(e) {}
     location.reload();
   },
 
