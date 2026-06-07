@@ -41,13 +41,11 @@ This document contains all submission details for the **Deal Intelligence Agent*
 
 ---
 
-# Repository / Project Files
-
-### GitHub Repository
+### GitHub Repository/Google Drive Link (containing all required files for verification)
 
 🔗 **https://github.com/DharmChaniyara/CODE-BUSTERS-**
 
-> ✅ Repository is public and accessible without authentication.
+> ✅ Repository is public and accessible without authentication. All source code, database migrations, configuration files, and assets are hosted in this repository.
 
 ---
 
