@@ -10,7 +10,7 @@ This document contains all submission details for the **Deal Intelligence Agent*
 
 ### Email ID
 
-> *(Enter the email address used during registration)*
+**dharmchaniyara7368@gmail.com**
 
 **Purpose:** Enables organizers to contact the team regarding evaluation, results, or any clarification required during verification.
 
@@ -18,7 +18,7 @@ This document contains all submission details for the **Deal Intelligence Agent*
 
 ### Phone Number
 
-> *(Enter the primary contact number of the team leader)*
+**7383015150**
 
 **Purpose:** Serves as an alternate communication channel for urgent updates or queries.
 
@@ -32,12 +32,12 @@ This document contains all submission details for the **Deal Intelligence Agent*
 
 ### Team Members
 
-| # | Full Name | Role |
-|---|-----------|------|
-| 1 | Dharam Chaniyara | Team Lead / Full Stack Developer |
-| 2 | *(Add member name)* | *(Add role)* |
-| 3 | *(Add member name)* | *(Add role)* |
-| 4 | *(Add member name)* | *(Add role)* |
+| # | Full Name | Role | LinkedIn |
+|---|-----------|------|----------|
+| 1 | Dharam Chaniyara | Team Lead / Full Stack Developer | [LinkedIn Profile](https://www.linkedin.com/in/dharm-chaniyara-b51b9137a/) |
+| 2 | Shubham Ahir | Frontend Developer & UI Designer | [LinkedIn Profile](https://www.linkedin.com/in/shubham-ahir-a4781330a/) |
+| 3 | Dev Patel | Backend Developer & Database Engineer | [LinkedIn Profile](https://www.linkedin.com/in/patel-dev-53a777394/) |
+| 4 | Aaryan Bhoricha | AI Integration & Systems Architect | [LinkedIn Profile](https://www.linkedin.com/in/aaryan-boricha-a48b0a3ab/) |
 
 ---
 
@@ -308,27 +308,25 @@ Screenshots in comments! Would love feedback.
 
 # Feedback
 
-> *(Fill in your hackathon experience feedback below)*
-
 ### What aspects of the competition were conducted well?
 
-> *(Your response here)*
+The overall structure of the hackathon was excellent. The problem statement selection was highly relevant to current enterprise needs, the evaluation criteria were transparent and well-defined, and the platform/API access allowed us to build a fully functional prototype without artificial constraints.
 
 ### Which activities or sessions were particularly useful?
 
-> *(Your response here)*
+The technical Q&A session and the detailed system guidelines were highly useful. They provided clarity on architectural constraints and expectations, which helped us align our multi-agent architecture and Supabase database integration perfectly.
 
 ### What improvements would you recommend for future editions?
 
-> *(Your response here)*
+Providing a set of pre-configured sandbox/test environments or initial schema templates for databases would help teams bootstrap their development even faster during the first few hours of the hackathon.
 
 ### Was communication and timeline management effective?
 
-> *(Your response here)*
+Yes, the organizers communicated updates proactively. The deadlines were clear, milestones were well-structured, and the response time from the support team was very fast.
 
 ### Would you recommend this hackathon to others?
 
-> *(Your response here)*
+Absolutely. It was a challenging, rewarding, and highly educational experience that pushed us to implement advanced AI capabilities (like multi-agent systems and interactive force-directed graph reasoning) in a short amount of time.
 
 ---
 
@@ -336,15 +334,15 @@ Screenshots in comments! Would love feedback.
 
 | Item | Status |
 |------|--------|
-| ✅ All participant details provided | ⬜ *(Fill in email, phone above)* |
+| ✅ All participant details provided | ✅ Done (Email, phone, and team details filled above) |
 | ✅ Team information is accurate | ✅ Done |
-| ✅ All team members listed | ⬜ *(Add remaining members above)* |
+| ✅ All team members listed | ✅ Done (4 team members listed above) |
 | ✅ GitHub repository is publicly accessible | ✅ [CODE-BUSTERS-](https://github.com/DharmChaniyara/CODE-BUSTERS-) |
-| ✅ LinkedIn post shared | ⬜ *(Paste URL above after posting)* |
-| ✅ Technical article/blog published | ⬜ *(Paste URL above after posting)* |
-| ✅ Project demo video uploaded | ⬜ *(Paste URL above after uploading)* |
-| ✅ Reddit post created | ⬜ *(Paste URL above after posting)* |
-| ✅ Feedback submitted | ⬜ *(Fill in feedback above)* |
+| ✅ LinkedIn post shared | ⬜ *[Pending publication]* |
+| ✅ Technical article/blog published | ⬜ *[Pending publication]* |
+| ✅ Project demo video uploaded | ⬜ *[Pending publication]* |
+| ✅ Reddit post created | ⬜ *[Pending publication]* |
+| ✅ Feedback submitted | ✅ Done (Feedback questions answered above) |
 
 ---
 

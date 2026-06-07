@@ -244,10 +244,12 @@ CODE-BUSTERS-/
 
 ## 👥 Team: CODE BUSTERS
 
-| Member | Role |
-|--------|------|
-| Dharam Chaniyara | Team Lead / Full Stack Developer |
-| *(Add other team members here)* | *(Add roles)* |
+| Member | Role | LinkedIn |
+|--------|------|----------|
+| **Dharam Chaniyara** | Team Lead / Full Stack Developer | [LinkedIn Profile](https://www.linkedin.com/in/dharm-chaniyara-b51b9137a/) |
+| **Shubham Ahir** | Frontend Developer & UI Designer | [LinkedIn Profile](https://www.linkedin.com/in/shubham-ahir-a4781330a/) |
+| **Dev Patel** | Backend Developer & Database Engineer | [LinkedIn Profile](https://www.linkedin.com/in/patel-dev-53a777394/) |
+| **Aaryan Bhoricha** | AI Integration & Systems Architect | [LinkedIn Profile](https://www.linkedin.com/in/aaryan-boricha-a48b0a3ab/) |
 
 ---
 
